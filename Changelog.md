@@ -2,6 +2,7 @@
 
 Compiler Features:
  * SMTChecker: Support ``addmod`` and ``mulmod``.
+ * SMTChecker: Support type conversions with number literals.
 
 
 ### 0.7.2 (2020-09-28)
