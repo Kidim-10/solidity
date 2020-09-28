@@ -119,6 +119,7 @@ ASTPointer<SourceUnit> Parser::parse(shared_ptr<Scanner> const& _scanner)
 				)
 				{
 					VarDeclParserOptions options;
+					// TODO should actually be false
 					options.isStateVariable = true;
 					options.allowInitialValue = true;
 					nodes.push_back(parseVariableDeclaration(options));

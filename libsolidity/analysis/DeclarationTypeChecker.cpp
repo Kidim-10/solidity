@@ -276,11 +276,11 @@ void DeclarationTypeChecker::endVisit(VariableDeclaration const& _variable)
 	if (_variable.annotation().type)
 		return;
 
-	if (_variable.isConstant() && !_variable.isStateVariable())
+	if (_variable.isConstant() && (!_variable.isStateVariable() && !_variable.isFileLevelVariable()))
 		m_errorReporter.declarationError(
 			1788_error,
 			_variable.location(),
-			"The \"constant\" keyword can only be used for state variables."
+			"The \"constant\" keyword can only be used for state variables or variables at file level."
 		);
 	if (_variable.immutable() && !_variable.isStateVariable())
 		m_errorReporter.declarationError(
@@ -342,6 +342,12 @@ void DeclarationTypeChecker::endVisit(VariableDeclaration const& _variable)
 	if (_variable.isEventParameter())
 	{
 		solAssert(varLoc == Location::Unspecified, "");
+		typeLoc = DataLocation::Memory;
+	}
+	else if (_variable.isFileLevelVariable())
+	{
+		solAssert(varLoc == Location::Unspecified, "");
+		solAssert(_variable.isConstant(), "");
 		typeLoc = DataLocation::Memory;
 	}
 	else if (_variable.isStateVariable())

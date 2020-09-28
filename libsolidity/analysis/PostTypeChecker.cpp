@@ -119,6 +119,7 @@ struct ConstStateVarCircularReferenceChecker: public PostTypeChecker::Checker
 
 	void finalize() override
 	{
+		// TODO search for cycles everywhere, not just in the contract def.
 		solAssert(!m_currentConstVariable, "");
 		for (auto declaration: m_constVariables)
 			if (auto identifier = findCycle(*declaration))
