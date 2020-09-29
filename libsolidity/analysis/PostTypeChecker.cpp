@@ -134,7 +134,6 @@ struct ConstStateVarCircularReferenceChecker: public PostTypeChecker::Checker
 	bool visit(ContractDefinition const&) override
 	{
 		solAssert(!m_currentConstVariable, "");
-		solAssert(m_constVariableDependencies.empty(), "");
 		return true;
 	}
 
