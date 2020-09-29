@@ -54,6 +54,9 @@ public:
 	{
 		Checker(langutil::ErrorReporter& _errorReporter):
 			m_errorReporter(_errorReporter) {}
+
+		/// Called after all source units have been visited.
+		virtual void finalize() {}
 	protected:
 		langutil::ErrorReporter& m_errorReporter;
 	};
@@ -62,6 +65,9 @@ public:
 	PostTypeChecker(langutil::ErrorReporter& _errorReporter);
 
 	bool check(ASTNode const& _astRoot);
+
+	/// Called after all source units have been visited.
+	bool finalize();
 
 private:
 	bool visit(ContractDefinition const& _contract) override;

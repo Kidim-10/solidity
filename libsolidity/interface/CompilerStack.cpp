@@ -396,6 +396,8 @@ bool CompilerStack::analyze()
 			for (Source const* source: m_sourceOrder)
 				if (source->ast && !postTypeChecker.check(*source->ast))
 					noErrors = false;
+			if (!postTypeChecker.finalize())
+				noErrors = false;
 		}
 
 		// Check that immutable variables are never read in c'tors and assigned

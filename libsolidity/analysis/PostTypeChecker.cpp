@@ -38,6 +38,13 @@ bool PostTypeChecker::check(ASTNode const& _astRoot)
 	return Error::containsOnlyWarnings(m_errorReporter.errors());
 }
 
+bool PostTypeChecker::finalize()
+{
+	for (auto& checker: m_checkers)
+		checker->finalize();
+	return Error::containsOnlyWarnings(m_errorReporter.errors());
+}
+
 bool PostTypeChecker::visit(ContractDefinition const& _contractDefinition)
 {
 	return callVisit(_contractDefinition);
@@ -110,14 +117,7 @@ struct ConstStateVarCircularReferenceChecker: public PostTypeChecker::Checker
 	ConstStateVarCircularReferenceChecker(ErrorReporter& _errorReporter):
 		Checker(_errorReporter) {}
 
-	bool visit(ContractDefinition const&) override
-	{
-		solAssert(!m_currentConstVariable, "");
-		solAssert(m_constVariableDependencies.empty(), "");
-		return true;
-	}
-
-	void endVisit(ContractDefinition const&) override
+	void finalize() override
 	{
 		solAssert(!m_currentConstVariable, "");
 		for (auto declaration: m_constVariables)
@@ -128,9 +128,13 @@ struct ConstStateVarCircularReferenceChecker: public PostTypeChecker::Checker
 					"The value of the constant " + declaration->name() +
 					" has a cyclic dependency via " + identifier->name() + "."
 				);
+	}
 
-		m_constVariables.clear();
-		m_constVariableDependencies.clear();
+	bool visit(ContractDefinition const&) override
+	{
+		solAssert(!m_currentConstVariable, "");
+		solAssert(m_constVariableDependencies.empty(), "");
+		return true;
 	}
 
 	bool visit(VariableDeclaration const& _variable) override
