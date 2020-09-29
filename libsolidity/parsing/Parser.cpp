@@ -111,15 +111,10 @@ ASTPointer<SourceUnit> Parser::parse(shared_ptr<Scanner> const& _scanner)
 				nodes.push_back(parseFunctionDefinition(true));
 				break;
 			default:
-				if (
-					m_scanner->currentToken() == Token::Identifier ||
-					m_scanner->currentToken() == Token::Mapping ||
-					TokenTraits::isElementaryTypeName(m_scanner->currentToken()) ||
-					(m_scanner->currentToken() == Token::Function && m_scanner->peekNextToken() == Token::LParen)
-				)
+				// Constant variable.
+				if (variableDeclarationStart())
 				{
 					VarDeclParserOptions options;
-					// TODO should actually be false
 					options.isStateVariable = true;
 					options.allowInitialValue = true;
 					nodes.push_back(parseVariableDeclaration(options));
@@ -347,12 +342,7 @@ ASTPointer<ContractDefinition> Parser::parseContractDefinition()
 				subNodes.push_back(parseStructDefinition());
 			else if (currentTokenValue == Token::Enum)
 				subNodes.push_back(parseEnumDefinition());
-			else if (
-				currentTokenValue == Token::Identifier ||
-				currentTokenValue == Token::Mapping ||
-				TokenTraits::isElementaryTypeName(currentTokenValue) ||
-				(currentTokenValue == Token::Function && m_scanner->peekNextToken() == Token::LParen)
-			)
+			else if (variableDeclarationStart())
 			{
 				VarDeclParserOptions options;
 				options.isStateVariable = true;
@@ -1941,6 +1931,16 @@ pair<vector<ASTPointer<Expression>>, vector<ASTPointer<ASTString>>> Parser::pars
 	}
 
 	return ret;
+}
+
+bool Parser::variableDeclarationStart()
+{
+	Token currentToken = m_scanner->currentToken();
+	return
+		currentToken == Token::Identifier ||
+		currentToken == Token::Mapping ||
+		TokenTraits::isElementaryTypeName(currentToken) ||
+		(currentToken == Token::Function && m_scanner->peekNextToken() == Token::LParen);
 }
 
 optional<string> Parser::findLicenseString(std::vector<ASTPointer<ASTNode>> const& _nodes)
