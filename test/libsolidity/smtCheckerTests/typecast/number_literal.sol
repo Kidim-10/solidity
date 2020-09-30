@@ -15,9 +15,7 @@ contract C {
     int d = -1;
     uint e = uint(d);
     assert(a != b);
-    // This works because literal type conversion works.
     assert(b == c);
-    // This can't be solved because proper type conversion is not yet supported.
     assert(b == e);
   }
   function h() public pure {
@@ -27,15 +25,7 @@ contract C {
     int32 d = -1;
     uint32 e = uint32(d);
     assert(a != b);
-    // This works because literal type conversion works.
     assert(b == c);
-    // This can't be solved because proper type conversion is not yet supported.
     assert(b == e);
   }
 }
-// ----
-// Warning 6328: (475-489): CHC: Assertion violation happens here.
-// Warning 6328: (753-767): CHC: Assertion violation happens here.
-// Warning 6328: (830-844): CHC: Assertion violation happens here.
-// Warning 6328: (931-945): CHC: Assertion violation happens here.
-// Warning 5084: (666-676): Type conversion is not yet fully supported and might yield false positives.

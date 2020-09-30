@@ -817,20 +817,118 @@ void SMTEncoder::visitTypeConversion(FunctionCall const& _funCall)
 {
 	solAssert(*_funCall.annotation().kind == FunctionCallKind::TypeConversion, "");
 	solAssert(_funCall.arguments().size() == 1, "");
+
 	auto argument = _funCall.arguments().front();
+	auto const& argType = argument->annotation().type;
+
 	unsigned argSize = argument->annotation().type->storageBytes();
 	unsigned castSize = _funCall.annotation().type->storageBytes();
-	auto const& funCallCategory = _funCall.annotation().type->category();
-	// TODO: remove the isNegative() check for literals once the type checker disallows this
-	if (
-		auto const* numberType = dynamic_cast<RationalNumberType const*>(argument->annotation().type);
-		numberType &&
-		((funCallCategory == Type::Category::Address && !numberType->isNegative()) ||
-		(funCallCategory == Type::Category::Integer && (numberType->isNegative() == dynamic_cast<IntegerType const&>(*m_context.expression(_funCall)->type()).isSigned())))
-	)
-		defineExpr(_funCall, numberType->literalValue(nullptr));
-	else if (argSize == castSize)
-		defineExpr(_funCall, expr(*argument));
+
+	auto const& funCallType = _funCall.annotation().type;
+
+	auto symbArg = expr(*argument);
+	bool castIsSigned = smt::isSigned(funCallType);
+	bool argIsSigned = smt::isSigned(argType);
+	auto symbMin = smt::minValue(funCallType);
+	auto symbMax = smt::maxValue(funCallType);
+	if (argSize == castSize)
+	{
+		// If sizes are the same, it's possible that the signs are different.
+		if (smt::isNumber(*funCallType))
+		{
+			solAssert(smt::isNumber(*argType), "");
+
+			// castIsSigned && !argIsSigned => might overflow if arg > castType.max
+			// !castIsSigned && argIsSigned => might underflow if arg < castType.min
+			// !castIsSigned && !argIsSigned => ok
+			// castIsSigned && argIsSigned => ok
+
+			if (castIsSigned && !argIsSigned)
+			{
+				auto wrap = smtutil::Expression::ite(
+					symbArg > symbMax,
+					symbArg - (symbMax - symbMin + 1),
+					symbArg
+				);
+				defineExpr(_funCall, wrap);
+			}
+			else if (!castIsSigned && argIsSigned)
+			{
+				auto wrap = smtutil::Expression::ite(
+					symbArg < symbMin,
+					symbArg + (symbMax + 1),
+					symbArg
+				);
+				defineExpr(_funCall, wrap);
+			}
+			else
+				defineExpr(_funCall, symbArg);
+		}
+		else
+			defineExpr(_funCall, symbArg);
+	}
+	else if (castSize > argSize)
+	{
+		solAssert(smt::isNumber(*funCallType), "");
+		// RationalNumbers have size 32.
+		solAssert(argType->category() != Type::Category::RationalNumber, "");
+
+		// castIsSigned && !argIsSigned => ok
+		// castIsSigned && argIsSigned => ok
+		// !castIsSigned && !argIsSigned => ok except for FixedBytesType, need to adjust padding
+		// !castIsSigned && argIsSigned => might underflow if arg < castType.min
+
+		if (!castIsSigned && argIsSigned)
+		{
+			auto wrap = smtutil::Expression::ite(
+				symbArg < symbMin,
+				symbArg + (symbMax + 1),
+				symbArg
+			);
+			defineExpr(_funCall, wrap);
+		}
+		else if (!castIsSigned && !argIsSigned)
+		{
+			if (auto const* fixedCast = dynamic_cast<FixedBytesType const*>(funCallType))
+			{
+				auto const* fixedArg = dynamic_cast<FixedBytesType const*>(argType);
+				solAssert(fixedArg, "");
+				auto diff = fixedCast->numBytes() - fixedArg->numBytes();
+				solAssert(diff > 0, "");
+				defineExpr(
+					_funCall,
+					smtutil::Expression::bv2int(smtutil::Expression::int2bv(symbArg, fixedCast->numBytes() * 8) << (diff * 8))
+				);
+			}
+			else
+				defineExpr(_funCall, symbArg);
+		}
+		else
+			defineExpr(_funCall, symbArg);
+	}
+	else // castSize < argSize
+	{
+		solAssert(smt::isNumber(*funCallType), "");
+
+		auto maxValueBV = smtutil::Expression::int2bv(TypeProvider::uint(castSize * 8)->maxValue(), argSize * 8);
+		auto argValueBV = smtutil::Expression::int2bv(symbArg, argSize * 8);
+
+		if (auto const* fixedCast = dynamic_cast<FixedBytesType const*>(funCallType))
+		{
+			auto const* fixedArg = dynamic_cast<FixedBytesType const*>(argType);
+			solAssert(fixedArg, "");
+			auto diff = argSize - castSize;
+			solAssert(fixedCast->numBytes() - fixedArg->numBytes() == diff, "");
+			m_errorReporter.warning(
+				5084_error,
+				_funCall.location(),
+				"Type conversion is not yet fully supported and might yield false positives."
+			);
+		}
+		else
+			defineExpr(_funCall, smtutil::Expression::bv2int(maxValueBV & argValueBV));
+	}
+	/*
 	else
 	{
 		m_context.setUnknownValue(*m_context.expression(_funCall));
@@ -856,6 +954,7 @@ void SMTEncoder::visitTypeConversion(FunctionCall const& _funCall)
 			"Type conversion is not yet fully supported and might yield false positives."
 		);
 	}
+	*/
 }
 
 void SMTEncoder::visitFunctionIdentifier(Identifier const& _identifier)

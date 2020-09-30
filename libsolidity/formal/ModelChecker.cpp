@@ -41,7 +41,7 @@ void ModelChecker::analyze(SourceUnit const& _source)
 	if (!_source.annotation().experimentalFeatures.count(ExperimentalFeature::SMTChecker))
 		return;
 
-	m_chc.analyze(_source);
+	//m_chc.analyze(_source);
 
 	auto solvedTargets = m_chc.safeTargets();
 	for (auto const& target: m_chc.unsafeTargets())
